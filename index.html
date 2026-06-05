@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIXELRISE — AI 이미지 업스케일러</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --surface: #f7f8fa;
+    --surface2: #eef0f4;
+    --border: #e2e5ea;
+    --border-dark: #d0d4db;
+    --accent: #3549ff;
+    --accent-hover: #2538ee;
+    --accent-light: rgba(53,73,255,0.08);
+    --accent-mid: rgba(53,73,255,0.15);
+    --text: #111827;
+    --muted: #6b7280;
+    --muted2: #9ca3af;
+    --success: #059669;
+    --success-light: rgba(5,150,105,0.08);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Pretendard', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 28px; }
+
+  /* ── HEADER ── */
+  header {
+    padding: 28px 0 22px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: var(--text);
+  }
+  .logo span {
+    font-weight: 400; font-family: 'Pretendard', monospace;
+    font-size: 11px; letter-spacing: 2px; color: var(--muted2);
+    margin-left: 10px; vertical-align: middle;
+  }
+  .badge {
+    font-family: 'Pretendard', monospace; font-size: 10px;
+    padding: 4px 10px; border: 1px solid var(--border-dark);
+    color: var(--muted); border-radius: 20px; letter-spacing: 1px;
+    background: var(--surface);
+  }
+
+  /* ── HERO ── */
+  .hero { padding: 36px 0 28px; text-align: center; }
+  .hero h1 {
+    font-size: clamp(32px, 5vw, 60px); font-weight: 800; line-height: 1.08;
+    letter-spacing: -2px; color: var(--text); margin-bottom: 14px;
+  }
+  .hero h1 span { color: var(--accent); }
+  .hero p { color: var(--muted); font-size: 15px; max-width: 440px; margin: 0 auto 32px; line-height: 1.65; }
+  .tag-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 44px; }
+  .tag {
+    font-family: 'Pretendard', monospace; font-size: 11px;
+    padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+    color: var(--muted); background: var(--surface);
+  }
+  .tag.active { border-color: rgba(53,73,255,0.3); color: var(--accent); background: var(--accent-light); }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-zone {
+    border: 2px dashed var(--border-dark); border-radius: 16px;
+    padding: 56px 32px; text-align: center; cursor: pointer;
+    transition: all 0.25s ease; background: var(--surface);
+    position: relative; overflow: hidden;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent); background: var(--accent-light);
+    box-shadow: 0 0 0 4px rgba(53,73,255,0.06);
+  }
+  .upload-icon {
+    font-size: 44px; margin: 0 auto 18px;
+    line-height: 1;
+  }
+  .upload-zone h3 { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 7px; }
+  .upload-zone p { color: var(--muted); font-size: 13px; }
+  .upload-zone input { display: none; }
+
+  /* 업로드된 이미지 썸네일 */
+  .upload-thumb {
+    width: 100%; max-height: 220px; object-fit: contain;
+    border-radius: 10px; margin-top: 16px; display: none;
+    border: 1px solid var(--border);
+  }
+  .upload-thumb.visible { display: block; }
+
+  /* ── CONTROLS ── */
+  .controls-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 26px; margin: 18px 0;
+    display: none;
+  }
+  .controls-panel.visible { display: block; }
+  .controls-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 22px; }
+
+  .control-group label {
+    display: block; font-size: 11px; font-family: 'Pretendard', monospace;
+    letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; text-transform: uppercase;
+  }
+
+  /* Scale buttons */
+  .scale-btns { display: flex; gap: 8px; }
+  .scale-btn {
+    flex: 1; padding: 10px 6px; border: 1px solid var(--border-dark);
+    background: #fff; color: var(--muted); border-radius: 10px;
+    cursor: pointer; font-family: 'Pretendard', sans-serif;
+    font-size: 13px; font-weight: 700; transition: all 0.18s; text-align: center;
+  }
+  .scale-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .scale-btn.active {
+    border-color: var(--accent); background: var(--accent);
+    color: #fff; box-shadow: 0 2px 12px rgba(53,73,255,0.25);
+  }
+
+  /* Sliders */
+  .slider-wrap { position: relative; padding-top: 4px; }
+  .range-slider {
+    -webkit-appearance: none; width: 100%; height: 4px;
+    background: linear-gradient(to right, var(--accent) var(--val, 0%), var(--border-dark) var(--val, 0%));
+    border-radius: 2px; outline: none; cursor: pointer;
+  }
+  /* sat slider: JS sets --left and --val for center-out fill */
+  #satSlider {
+    background: linear-gradient(to right,
+      var(--border-dark) 0%,
+      var(--border-dark) var(--left, 50%),
+      var(--accent) var(--left, 50%),
+      var(--accent) var(--val, 50%),
+      var(--border-dark) var(--val, 50%),
+      var(--border-dark) 100%
+    ) !important;
+  }
+  .range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px;
+    background: #fff; border-radius: 50%;
+    border: 2px solid var(--accent); box-shadow: 0 1px 6px rgba(53,73,255,0.2);
+  }
+  .slider-val {
+    position: absolute; right: 0; top: -18px;
+    font-family: 'Pretendard', monospace; font-size: 12px; color: var(--accent); font-weight: 500;
+  }
+
+  /* Mode cards */
+  .mode-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+  .mode-card {
+    padding: 9px 6px; border: 1px solid var(--border-dark);
+    background: #fff; border-radius: 9px; cursor: pointer;
+    text-align: center; transition: all 0.18s;
+  }
+  .mode-card:hover { border-color: var(--accent); background: var(--accent-light); }
+  .mode-card.active { border-color: var(--accent); background: var(--accent); }
+  .mode-name {
+    font-size: 12px; font-weight: 700; color: var(--text);
+    transition: color 0.18s;
+  }
+  .mode-card.active .mode-name { color: #fff; }
+  .mode-desc {
+    font-size: 10px; color: var(--muted); margin-top: 2px;
+    transition: color 0.18s; line-height: 1.3;
+  }
+  .mode-card.active .mode-desc { color: rgba(255,255,255,0.8); }
+  .mode-card:hover:not(.active) .mode-name { color: var(--accent); }
+  .mode-card:hover:not(.active) .mode-desc { color: var(--accent); }
+
+  /* Select */
+  .mode-select {
+    width: 100%; background: #fff; border: 1px solid var(--border-dark);
+    color: var(--text); padding: 10px 12px; border-radius: 10px;
+    font-family: 'Pretendard', sans-serif; font-size: 14px; cursor: pointer; outline: none;
+  }
+  .mode-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(53,73,255,0.1); }
+
+  /* Toggles */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .toggle-label { font-size: 13px; color: var(--text); line-height: 1.4; }
+  .toggle {
+    flex-shrink: 0; width: 44px; height: 24px; background: var(--border-dark);
+    border-radius: 12px; position: relative; cursor: pointer; transition: background 0.25s;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: ''; position: absolute; width: 18px; height: 18px;
+    background: white; border-radius: 50%; top: 3px; left: 3px;
+    transition: transform 0.25s; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .toggle.on::after { transform: translateX(20px); }
+
+  /* ── PROCESS BUTTON ── */
+  .process-btn {
+    width: 100%; padding: 16px; margin-top: 22px;
+    background: var(--accent); border: none; border-radius: 12px;
+    color: white; font-family: 'Pretendard', sans-serif; font-size: 15px; font-weight: 700;
+    letter-spacing: 0.3px; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(53,73,255,0.28);
+    transition: all 0.2s;
+  }
+  .process-btn:hover { background: var(--accent-hover); box-shadow: 0 6px 22px rgba(53,73,255,0.36); transform: translateY(-1px); }
+  .process-btn:active { transform: translateY(0); }
+  .process-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* ── PROGRESS ── */
+  .progress-wrap { margin-top: 16px; display: none; }
+  .progress-wrap.visible { display: block; }
+  .progress-bar-bg { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .progress-bar-fill {
+    height: 100%; background: var(--accent);
+    border-radius: 3px; width: 0%; transition: width 0.12s;
+  }
+  .progress-text {
+    font-family: 'Pretendard', monospace; font-size: 12px;
+    color: var(--muted); margin-top: 7px; display: flex; justify-content: space-between;
+  }
+  .progress-status { color: var(--accent); }
+
+  /* ── PREVIEW ── */
+  .preview-section { margin: 28px 0; display: none; }
+  .preview-section.visible { display: block; }
+  .preview-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px; flex-wrap: wrap; gap: 10px;
+  }
+  .preview-header h2 { font-size: 20px; font-weight: 700; color: var(--text); }
+  .info-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    font-family: 'Pretendard', monospace; font-size: 11px;
+    padding: 4px 11px; border-radius: 20px; background: var(--surface);
+    border: 1px solid var(--border); color: var(--muted);
+  }
+  .chip.green { border-color: rgba(5,150,105,0.3); color: var(--success); background: var(--success-light); }
+  .chip.blue { border-color: rgba(53,73,255,0.3); color: var(--accent); background: var(--accent-light); }
+
+  /* Compare */
+  .compare-container {
+    position: relative; border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--border); background: #f0f0f0;
+    cursor: col-resize; user-select: none;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  }
+  .compare-container canvas { display: block; width: 100%; height: auto; }
+  #canvasOriginal {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    clip-path: inset(0 50% 0 0);
+  }
+  #canvasResult { display: block; width: 100%; height: auto; }
+
+  .compare-divider {
+    position: absolute; top: 0; bottom: 0; width: 2px;
+    background: white; box-shadow: 0 0 12px rgba(0,0,0,0.25);
+    cursor: col-resize; z-index: 10; left: 50%;
+  }
+  .compare-divider::before {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 34px; height: 34px; background: white; border-radius: 50%;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  }
+  .compare-divider::after {
+    content: '⟺'; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 14px; color: #444; z-index: 1;
+  }
+  .compare-label {
+    position: absolute; top: 14px; font-family: 'Pretendard', monospace;
+    font-size: 10px; letter-spacing: 1px; padding: 4px 10px;
+    background: rgba(0,0,0,0.55); color: white; border-radius: 20px; backdrop-filter: blur(6px);
+  }
+  .label-original { left: 14px; }
+  .label-result { right: 14px; background: rgba(53,73,255,0.75); }
+
+  /* Stats */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-top: 20px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; text-align: center;
+  }
+  .stat-val { font-size: 22px; font-weight: 800; color: var(--accent); }
+  .stat-label { font-size: 11px; font-family: 'Pretendard', monospace; color: var(--muted); margin-top: 3px; }
+
+  /* Download */
+  .download-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .dl-btn {
+    flex: 1; min-width: 150px; padding: 13px 18px;
+    border: 1px solid var(--border-dark); background: #fff;
+    color: var(--text); border-radius: 10px;
+    font-family: 'Pretendard', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.18s; text-align: center;
+  }
+  .dl-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .dl-btn.primary {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+    box-shadow: 0 3px 14px rgba(53,73,255,0.28);
+  }
+  .dl-btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 5px 18px rgba(53,73,255,0.36); color: #fff; }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--border); padding: 22px 0; margin-top: 56px;
+    text-align: center; color: var(--muted2); font-size: 12px;
+    font-family: 'Pretendard', monospace;
+  }
+
+  /* ── INLINE COMPRESS ── */
+  .inline-compress {
+    margin-top: 20px; border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px; background: var(--surface);
+  }
+  .inline-compress-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 14px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .inline-compress-title { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+  .inline-compress-sub { font-size: 12px; color: var(--muted); }
+  .target-inline-btns { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .target-btn-sm {
+    padding: 5px 12px; border: 1px solid var(--border-dark);
+    background: #fff; color: var(--muted); border-radius: 7px;
+    cursor: pointer; font-family: 'Pretendard', sans-serif;
+    font-size: 12px; font-weight: 600; transition: all 0.15s;
+  }
+  .target-btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+  .target-btn-sm.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+
+  .compress-inline-btn {
+    width: 100%; padding: 14px; background: var(--accent);
+    border: none; border-radius: 11px; color: #fff;
+    font-family: 'Pretendard', sans-serif; font-size: 14px; font-weight: 700;
+    cursor: pointer; box-shadow: 0 3px 14px rgba(53,73,255,0.25);
+    transition: all 0.2s;
+  }
+  .compress-inline-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+  .compress-inline-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .compress-inline-progress { display: none; }
+  .compress-inline-progress.visible { display: block; }
+
+  .compress-inline-result { margin-top: 16px; display: none; }
+  .compress-inline-result.visible { display: block; }
+  .cinline-cards {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 4px;
+  }
+  .cinline-card {
+    background: #fff; border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; text-align: center;
+  }
+  .cinline-card.highlight { border-color: rgba(53,73,255,0.3); background: var(--accent-light); }
+
+  /* Shared result card styles */
+  .cres-label { font-size: 11px; font-family: 'Pretendard', monospace; color: var(--muted); margin-bottom: 5px; }
+  .cres-val { font-size: 20px; font-weight: 800; color: var(--text); }
+  .cres-val.green { color: var(--success); }
+  .cres-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .compress-dl-btn {
+    padding: 13px 18px; background: var(--accent);
+    border: none; border-radius: 10px; color: #fff;
+    font-family: 'Pretendard', sans-serif; font-size: 14px; font-weight: 700;
+    cursor: pointer; box-shadow: 0 3px 14px rgba(53,73,255,0.28);
+    transition: all 0.18s;
+  }
+  .compress-dl-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+
+  /* ── 섹션 블록 ── */
+  .section-block {
+    margin: 32px 0;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .section-label {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .section-label-icon {
+    width: 42px; height: 42px; background: var(--accent);
+    border-radius: 11px; display: flex; align-items: center;
+    justify-content: center; font-size: 20px; flex-shrink: 0;
+  }
+  .section-label-title { font-size: 16px; font-weight: 700; color: var(--text); }
+  .section-label-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* 섹션 내부 여백 */
+  .section-block > .upload-zone,
+  .section-block > .compress-standalone-upload,
+  .section-block > .controls-panel,
+  .section-block > .compress-controls,
+  .section-block > .preview-section { margin: 20px; }
+  .section-block > .upload-zone { border-radius: 12px; }
+
+  /* 압축 전용 섹션 */
+  .compress-standalone-upload { margin-bottom: 4px; }
+  .compress-thumb { display: none; }
+  .compress-thumb.visible { display: block; width: 100%; max-height: 220px; object-fit: contain; border-radius: 10px; margin-top: 16px; border: 1px solid var(--border); }
+  .compress-thumb {
+    width: 100%; max-height: 180px; object-fit: contain;
+    border-radius: 8px; margin-top: 16px; display: none;
+    border: 1px solid var(--border);
+  }
+  .compress-thumb.visible { display: block; }
+  .compress-controls { display: none; }
+  .compress-controls.visible { display: block; }
+  .compress-target-row {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 16px;
+  }
+  .compress-target-row label {
+    font-size: 11px; font-family: 'Pretendard', monospace;
+    letter-spacing: 1px; color: var(--muted); text-transform: uppercase; white-space: nowrap;
+  }
+  .target-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .target-btn {
+    padding: 8px 16px; border: 1px solid var(--border-dark);
+    background: #fff; color: var(--muted); border-radius: 8px;
+    cursor: pointer; font-family: 'Pretendard', sans-serif;
+    font-size: 13px; font-weight: 600; transition: all 0.18s;
+  }
+  .target-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .target-btn.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .compress-format-row {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .compress-format-row label {
+    font-size: 11px; font-family: 'Pretendard', monospace;
+    letter-spacing: 1px; color: var(--muted); text-transform: uppercase; white-space: nowrap;
+  }
+  .format-btns { display: flex; gap: 8px; }
+  .format-btn {
+    padding: 8px 16px; border: 1px solid var(--border-dark);
+    background: #fff; color: var(--muted); border-radius: 8px;
+    cursor: pointer; font-family: 'Pretendard', sans-serif;
+    font-size: 13px; font-weight: 600; transition: all 0.18s;
+  }
+  .format-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .format-btn.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .compress-btn {
+    width: 100%; padding: 15px; background: var(--accent);
+    border: none; border-radius: 12px; color: #fff;
+    font-family: 'Pretendard', sans-serif; font-size: 15px; font-weight: 700;
+    cursor: pointer; box-shadow: 0 4px 16px rgba(53,73,255,0.28); transition: all 0.2s;
+  }
+  .compress-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
+  .compress-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+  .compress-progress { margin: 14px 0; display: none; }
+  .compress-progress.visible { display: block; }
+  .compress-result { margin-top: 20px; display: none; }
+  .compress-result.visible { display: block; }
+  .compress-result-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+  .cres-card {
+    background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center;
+  }
+  .cres-card.highlight { border-color: rgba(53,73,255,0.3); background: var(--accent-light); }
+  .compress-dl-row { display: flex; gap: 10px; }
+
+  /* ── 처리 중 로딩 오버레이 ── */
+  .preview-loading {
+    display: none;
+    position: absolute; inset: 0; z-index: 20;
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(6px);
+    align-items: center; justify-content: center;
+    border-radius: 16px;
+  }
+  .preview-loading.visible { display: flex; }
+  .loading-inner { text-align: center; }
+  .loading-spinner {
+    width: 52px; height: 52px; margin: 0 auto 16px;
+    border: 4px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .loading-label {
+    font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px;
+  }
+  .loading-pct {
+    font-size: 28px; font-weight: 800; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <div class="logo">PIXELRISE <span>v2.1.0</span></div>
+    </div>
+    <div class="badge">AI UPSCALER</div>
+  </header>
+
+  <div class="hero">
+    <h1>Image Ultra-High Resolution<br><span>Upscaling System</span></h1>
+    <p>AI 알고리즘으로 어떤 이미지든 4K·8K 수준으로 변환.<br>색상 강화, 노이즈 제거, 선명도 극대화.</p>
+  </div>
+
+  <!-- 업스케일 섹션 -->
+  <div class="section-block" id="sectionUpscale">
+    <div class="section-label">
+      <div class="section-label-icon">🔮</div>
+      <div>
+        <div class="section-label-title">업스케일링</div>
+        <div class="section-label-sub">이미지 해상도 4K · 8K 업그레이드</div>
+      </div>
+    </div>
+
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept="image/*">
+    <div class="upload-icon">🔮</div>
+    <h3 id="uploadTitle">이미지를 드래그하거나 클릭해서 업로드</h3>
+    <p id="uploadDesc">JPG, PNG, WEBP, BMP 지원 · 최대 50MB</p>
+    <img class="upload-thumb" id="uploadThumb" alt="미리보기">
+  </div>
+
+  <!-- Controls -->
+  <div class="controls-panel" id="controlsPanel">
+    <div class="controls-grid">
+      <div class="control-group">
+        <label>업스케일 배율</label>
+        <div class="scale-btns">
+          <div class="scale-btn" data-scale="2">2×</div>
+          <div class="scale-btn" data-scale="4">4×<br><small style="font-size:9px;opacity:0.7">4K</small></div>
+          <div class="scale-btn active" data-scale="8">8×<br><small style="font-size:9px;opacity:0.7">8K</small></div>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>업스케일 모드</label>
+        <div class="mode-cards" id="modeCards">
+          <div class="mode-card active" data-mode="bicubic">
+            <div class="mode-name">Bicubic</div>
+            <div class="mode-desc">범용 · 균형</div>
+          </div>
+          <div class="mode-card" data-mode="lanczos">
+            <div class="mode-name">Lanczos</div>
+            <div class="mode-desc">고품질 · 정밀</div>
+          </div>
+          <div class="mode-card" data-mode="photo">
+            <div class="mode-name">Photo</div>
+            <div class="mode-desc">인물 · 풍경</div>
+          </div>
+          <div class="mode-card" data-mode="anime">
+            <div class="mode-name">Anime</div>
+            <div class="mode-desc">선명 윤곽 · 채색</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>선명도 강화</label>
+        <div class="slider-wrap">
+          <span class="slider-val" id="sharpVal">0%</span>
+          <input type="range" class="range-slider" id="sharpSlider" min="0" max="100" value="0">
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>노이즈 제거</label>
+        <div class="slider-wrap">
+          <span class="slider-val" id="denoiseVal">0%</span>
+          <input type="range" class="range-slider" id="denoiseSlider" min="0" max="100" value="0">
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>색상 채도</label>
+        <div class="slider-wrap">
+          <span class="slider-val" id="satVal">0</span>
+          <input type="range" class="range-slider" id="satSlider" min="-100" max="100" value="0">
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>명암 대비</label>
+        <div class="slider-wrap">
+          <span class="slider-val" id="hdrVal">0%</span>
+          <input type="range" class="range-slider" id="hdrSlider" min="0" max="100" value="0">
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>피부톤 보정</label>
+        <div class="toggle-row">
+          <span class="toggle-label">피부색 감지 · 자연스러운 피부 정돈</span>
+          <div class="toggle" id="autoColorToggle"></div>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>엣지 선명화 (AI)</label>
+        <div class="toggle-row">
+          <span class="toggle-label">윤곽선 AI 강화 처리</span>
+          <div class="toggle" id="edgeToggle"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="process-btn" id="processBtn">🚀 &nbsp;업스케일링 시작</button>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-text">
+        <span class="progress-status" id="progressStatus">분석 중...</span>
+        <span id="progressPct">0%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div class="preview-section" id="previewSection">
+    <div class="preview-header">
+      <h2>결과 미리보기</h2>
+      <div class="info-chips">
+        <div class="chip" id="origSize">원본: —</div>
+        <div class="chip green" id="newSize">결과: —</div>
+        <div class="chip blue" id="scaleFactor">배율: —</div>
+      </div>
+    </div>
+
+    <div class="compare-container" id="compareContainer">
+      <canvas id="canvasResult"></canvas>
+      <canvas id="canvasOriginal"></canvas>
+      <div class="compare-divider" id="divider"></div>
+      <div class="compare-label label-original">ORIGINAL</div>
+      <div class="compare-label label-result">UPSCALED ✦</div>
+      <!-- 처리 중 로딩 오버레이 -->
+      <div class="preview-loading" id="previewLoading">
+        <div class="loading-inner">
+          <div class="loading-spinner"></div>
+          <div class="loading-label" id="loadingLabel">업스케일링 중...</div>
+          <div class="loading-pct" id="loadingPct">0%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-val" id="statPixels">—</div>
+        <div class="stat-label">픽셀 수 증가</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statSharp">—</div>
+        <div class="stat-label">선명도 향상</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statColor">—</div>
+        <div class="stat-label">색상 깊이</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statTime">—</div>
+        <div class="stat-label">처리 시간</div>
+      </div>
+    </div>
+
+    <div class="download-row">
+      <button class="dl-btn primary" id="dlPNG">⬇ PNG</button>
+      <button class="dl-btn" id="dlJPG">⬇ JPG</button>
+      <button class="dl-btn" id="dlWEBP">⬇ WEBP</button>
+    </div>
+
+    <!-- Inline compress -->
+    <div class="inline-compress" id="inlineCompress">
+      <div class="inline-compress-top">
+        <div>
+          <div class="inline-compress-title">📦 Compress Result</div>
+          <div class="inline-compress-sub">화질 유지 · 파일 크기 최소화 · 최대 5MB 이하</div>
+        </div>
+        <div class="target-inline-btns">
+          <span style="font-size:11px;font-family:'Pretendard',monospace;color:var(--muted);margin-right:6px;">목표</span>
+          <div class="target-btn-sm active" data-mb="1">1MB</div>
+          <div class="target-btn-sm" data-mb="2">2MB</div>
+          <div class="target-btn-sm" data-mb="3">3MB</div>
+          <div class="target-btn-sm" data-mb="5">5MB</div>
+        </div>
+      </div>
+      <button class="compress-inline-btn" id="compressInlineBtn">🗜️ &nbsp;업스케일 결과 압축하기</button>
+
+      <div class="compress-inline-progress" id="compressInlineProgress">
+        <div class="progress-bar-bg" style="margin-top:12px">
+          <div class="progress-bar-fill" id="compressInlineFill" style="width:0%"></div>
+        </div>
+        <div class="progress-text">
+          <span class="progress-status" id="compressInlineStatus">최적 품질 탐색 중...</span>
+          <span id="compressInlinePct">0%</span>
+        </div>
+      </div>
+
+      <div class="compress-inline-result" id="compressInlineResult">
+        <div class="cinline-cards">
+          <div class="cinline-card">
+            <div class="cres-label">압축 전</div>
+            <div class="cres-val" id="cinlineOrig">—</div>
+          </div>
+          <div class="cinline-card highlight">
+            <div class="cres-label">압축 후</div>
+            <div class="cres-val green" id="cinlineNew">—</div>
+            <div class="cres-sub" id="cinlineRatio">—</div>
+          </div>
+        </div>
+        <button class="compress-dl-btn" id="compressInlineDl" style="width:100%;margin-top:12px">⬇ 압축 이미지 다운로드</button>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /section-block upscale -->
+
+  <!-- 압축 섹션 -->
+  <div class="section-block" id="sectionCompress">
+    <div class="section-label">
+      <div class="section-label-icon" style="background:var(--accent);">📦</div>
+      <div>
+        <div class="section-label-title">용량 압축</div>
+        <div class="section-label-sub">화질 유지 · 파일 크기 최소화</div>
+      </div>
+    </div>
+
+  <div class="compress-standalone-upload">
+    <div class="upload-zone" id="compressUploadZone" style="border-color: var(--border-dark);">
+      <input type="file" id="compressFileInput" accept="image/*">
+      <div class="upload-icon">🗜️</div>
+      <h3 id="compressUploadTitle">압축할 이미지를 드래그하거나 클릭</h3>
+      <p id="compressUploadDesc">JPG, PNG, WEBP, BMP 지원 · 모든 크기 가능</p>
+      <img class="upload-thumb compress-thumb" id="compressThumb" alt="미리보기">
+    </div>
+  </div>
+
+  <div class="compress-controls" id="compressControls">
+    <div style="height:20px"></div>
+    <div class="compress-target-row">
+      <label>목표 용량</label>
+      <div class="target-btns">
+        <div class="target-btn active" data-mb="1">1 MB</div>
+        <div class="target-btn" data-mb="2">2 MB</div>
+        <div class="target-btn" data-mb="3">3 MB</div>
+        <div class="target-btn" data-mb="5">5 MB</div>
+      </div>
+    </div>
+    <div class="compress-format-row">
+      <label>저장 형식</label>
+      <div class="format-btns">
+        <div class="format-btn active" data-fmt="image/jpeg">JPG</div>
+        <div class="format-btn" data-fmt="image/webp">WEBP</div>
+        <div class="format-btn" data-fmt="image/png">PNG</div>
+      </div>
+    </div>
+    <button class="compress-btn" id="compressBtn">🗜️ &nbsp;용량 압축 시작</button>
+    <div class="compress-progress" id="compressProgress">
+      <div class="progress-bar-bg" style="margin-top:14px">
+        <div class="progress-bar-fill" id="compressProgressFill" style="width:0%"></div>
+      </div>
+      <div class="progress-text">
+        <span class="progress-status" id="compressProgressStatus">최적 품질 탐색 중...</span>
+        <span id="compressProgressPct">0%</span>
+      </div>
+    </div>
+    <div class="compress-result" id="compressResult">
+      <div class="compress-result-cards">
+        <div class="cres-card">
+          <div class="cres-label">원본 용량</div>
+          <div class="cres-val" id="cresOrigSize">—</div>
+          <div class="cres-sub" id="cresOrigDim">—</div>
+        </div>
+        <div class="cres-card highlight">
+          <div class="cres-label">압축 후 용량</div>
+          <div class="cres-val green" id="cresNewSize">—</div>
+          <div class="cres-sub" id="cresRatio">절감률 —</div>
+        </div>
+      </div>
+      <div class="compress-dl-row" style="margin-top:14px">
+        <button class="compress-dl-btn" id="compressDlBtn" style="width:100%">⬇ 압축 이미지 다운로드</button>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /section-block compress -->
+
+  <footer>PIXELRISE AI Upscaler · Canvas API + Advanced Image Processing · All processing done in browser</footer>
+</div>
+
+<script>
+// ── STATE ──
+let originalImage = null;
+let resultCanvas = null;
+let selectedScale = 8; // 기본값 8K
+let dividerX = 50;
+let isDragging = false;
+
+// ── UPLOAD ──
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) loadImage(file);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) loadImage(e.target.files[0]);
+  // reset so same file triggers change event again
+  fileInput.value = '';
+});
+
+function loadImage(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      originalImage = img;
+
+      // 업로드 존 업데이트
+      document.getElementById('uploadTitle').textContent = `✓ ${file.name}`;
+      document.getElementById('uploadDesc').textContent = `${img.width} × ${img.height}px · ${(file.size/1024/1024).toFixed(2)}MB`;
+
+      // 썸네일 표시 (새 이미지마다 갱신)
+      const thumb = document.getElementById('uploadThumb');
+      thumb.src = ev.target.result;
+      thumb.classList.add('visible');
+
+      // 컨트롤 패널 표시
+      document.getElementById('controlsPanel').classList.add('visible');
+
+      // 이전 결과 숨기기 — 새 이미지를 올리면 이전 결과 초기화
+      document.getElementById('previewSection').classList.remove('visible');
+      resultCanvas = null;
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── SCALE BUTTONS ──
+document.querySelectorAll('.scale-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.scale-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedScale = parseInt(btn.dataset.scale);
+  });
+});
+
+// ── SLIDERS (기본값 = 원본 유지 기준) ──
+function initSlider(id, valId, suffix='%') {
+  const slider = document.getElementById(id);
+  const val = document.getElementById(valId);
+  function upd() {
+    val.textContent = slider.value + suffix;
+    const pct = ((slider.value - slider.min) / (slider.max - slider.min) * 100).toFixed(1);
+    slider.style.setProperty('--val', pct + '%');
+  }
+  slider.addEventListener('input', upd);
+  upd();
+}
+initSlider('sharpSlider', 'sharpVal');
+initSlider('denoiseSlider', 'denoiseVal');
+initSlider('hdrSlider', 'hdrVal');
+
+// 채도 슬라이더 - 양방향, 부호 표시
+(function() {
+  const slider = document.getElementById('satSlider');
+  const val = document.getElementById('satVal');
+  function upd() {
+    const v = parseInt(slider.value); // -100 .. +100
+    val.textContent = (v > 0 ? '+' : '') + v;
+    const pct = (v + 100) / 200 * 100; // position of thumb in %
+    const center = 50; // 0 value is at 50%
+    if (v >= 0) {
+      slider.style.setProperty('--left', center + '%');
+      slider.style.setProperty('--val', pct.toFixed(1) + '%');
+    } else {
+      slider.style.setProperty('--left', pct.toFixed(1) + '%');
+      slider.style.setProperty('--val', center + '%');
+    }
+  }
+  slider.addEventListener('input', upd);
+  upd();
+})();
+
+// ── MODE CARDS ──
+let selectedMode = 'bicubic';
+document.querySelectorAll('.mode-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    selectedMode = card.dataset.mode;
+  });
+});
+
+
+document.querySelectorAll('.toggle').forEach(t => {
+  t.addEventListener('click', () => t.classList.toggle('on'));
+});
+
+// ── PROCESS ──
+document.getElementById('processBtn').addEventListener('click', async () => {
+  if (!originalImage) return;
+  await processImage();
+});
+
+async function processImage() {
+  const btn          = document.getElementById('processBtn');
+  const progressWrap = document.getElementById('progressWrap');
+  const fill         = document.getElementById('progressFill');
+  const status       = document.getElementById('progressStatus');
+  const pct          = document.getElementById('progressPct');
+  const previewSection = document.getElementById('previewSection');
+  const previewLoading = document.getElementById('previewLoading');
+  const loadingLabel   = document.getElementById('loadingLabel');
+  const loadingPct     = document.getElementById('loadingPct');
+
+  btn.disabled = true;
+  progressWrap.classList.add('visible');
+  previewSection.classList.add('visible');
+  previewLoading.classList.add('visible');
+  previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const startTime = Date.now();
+
+  // UI 업데이트 후 브라우저가 실제로 페인트할 시간을 줌
+  function yield_() { return new Promise(r => setTimeout(r, 0)); }
+
+  function setUI(p, s) {
+    fill.style.width       = p + '%';
+    pct.textContent        = p + '%';
+    status.textContent     = s;
+    loadingLabel.textContent = s;
+    loadingPct.textContent   = p + '%';
+  }
+
+  const sharp    = parseInt(document.getElementById('sharpSlider').value) / 100;
+  const denoise  = parseInt(document.getElementById('denoiseSlider').value) / 100;
+  const sat      = 1 + parseInt(document.getElementById('satSlider').value) / 100;
+  const hdr      = parseInt(document.getElementById('hdrSlider').value) / 100;
+  const autoColor = document.getElementById('autoColorToggle').classList.contains('on');
+  const edgeAI    = document.getElementById('edgeToggle').classList.contains('on');
+  const mode      = selectedMode;
+
+  // ── 각 단계마다 실제 작업 + UI 업데이트 + yield ──
+
+  setUI(5, '이미지 분석 중...'); await yield_();
+
+  // 원본 캔버스 준비
+  const sw = originalImage.width, sh = originalImage.height;
+  const tmp = document.createElement('canvas');
+  tmp.width = sw; tmp.height = sh;
+  const tc = tmp.getContext('2d');
+  tc.drawImage(originalImage, 0, 0);
+  let data = tc.getImageData(0, 0, sw, sh);
+
+  setUI(18, '노이즈 제거 적용...'); await yield_();
+  const modeParams = getModeParams(mode, { sharp, denoise, sat, hdr, autoColor, edgeAI });
+  const effectiveDenoise = Math.min(1, denoise + modeParams.denoiseBoost);
+  if (effectiveDenoise > 0.01) data = applyDenoise(data, sw, sh, effectiveDenoise);
+
+  setUI(35, '색상 강화 적용...'); await yield_();
+  const effectiveSat = Math.max(0, sat + modeParams.satBoost);
+  const effectiveHdr = Math.min(1, hdr + modeParams.hdrBoost);
+  data = applyColorEnhancement(data, sw, sh, effectiveSat, autoColor || modeParams.autoColor, effectiveHdr);
+  tc.putImageData(data, 0, 0);
+
+  setUI(50, '업스케일 보간 중...'); await yield_();
+  const dw = sw * selectedScale, dh = sh * selectedScale;
+  const out = document.createElement('canvas');
+  out.width = dw; out.height = dh;
+  const oc = out.getContext('2d');
+
+  if (mode === 'lanczos') {
+    oc.imageSmoothingEnabled = true; oc.imageSmoothingQuality = 'high';
+    let cur = tmp, cw = sw, ch = sh;
+    const steps = Math.ceil(Math.log2(selectedScale));
+    for (let i = 0; i < steps; i++) {
+      const s2 = document.createElement('canvas');
+      s2.width = Math.round(cw * 2); s2.height = Math.round(ch * 2);
+      const c2 = s2.getContext('2d');
+      c2.imageSmoothingEnabled = true; c2.imageSmoothingQuality = 'high';
+      c2.drawImage(cur, 0, 0, s2.width, s2.height);
+      let sd = c2.getImageData(0, 0, s2.width, s2.height);
+      sd = applyUnsharpMask(sd, s2.width, s2.height, 0.18, 1.0);
+      c2.putImageData(sd, 0, 0);
+      cur = s2; cw = s2.width; ch = s2.height;
+    }
+    oc.drawImage(cur, 0, 0, dw, dh);
+  } else if (mode === 'anime') {
+    oc.imageSmoothingEnabled = false;
+    oc.drawImage(tmp, 0, 0, dw, dh);
+    const tmpSmooth = document.createElement('canvas');
+    tmpSmooth.width = dw; tmpSmooth.height = dh;
+    const ts = tmpSmooth.getContext('2d');
+    ts.imageSmoothingEnabled = true; ts.imageSmoothingQuality = 'high';
+    ts.drawImage(tmp, 0, 0, dw, dh);
+    oc.globalAlpha = 0.4; oc.drawImage(tmpSmooth, 0, 0); oc.globalAlpha = 1.0;
+  } else {
+    oc.imageSmoothingEnabled = true; oc.imageSmoothingQuality = 'high';
+    if (selectedScale > 2) {
+      let cur = tmp, cw = sw, ch = sh;
+      const steps = Math.ceil(Math.log2(selectedScale));
+      for (let i = 0; i < steps; i++) {
+        const s2 = document.createElement('canvas');
+        const factor = Math.min(2, selectedScale / Math.pow(2, i));
+        s2.width = Math.round(cw * factor); s2.height = Math.round(ch * factor);
+        const c2 = s2.getContext('2d');
+        c2.imageSmoothingEnabled = true; c2.imageSmoothingQuality = 'high';
+        c2.drawImage(cur, 0, 0, s2.width, s2.height);
+        cur = s2; cw = s2.width; ch = s2.height;
+      }
+      oc.drawImage(cur, 0, 0, dw, dh);
+    } else {
+      oc.drawImage(tmp, 0, 0, dw, dh);
+    }
+  }
+
+  setUI(75, '엣지 선명화 처리...'); await yield_();
+  const effectiveSharp = Math.min(1, sharp + modeParams.sharpBoost);
+  const useEdge = edgeAI || modeParams.forceEdge;
+  if (effectiveSharp > 0.01 || useEdge) {
+    let od = oc.getImageData(0, 0, dw, dh);
+    od = applyUnsharpMask(od, dw, dh, effectiveSharp, useEdge ? modeParams.edgeMult : 1.0);
+    oc.putImageData(od, 0, 0);
+  }
+
+  setUI(92, '최종 렌더링...'); await yield_();
+  resultCanvas = out;
+
+  setUI(100, '완료!'); await yield_();
+
+  previewLoading.classList.remove('visible');
+  showResults(startTime);
+  btn.disabled = false;
+  progressWrap.classList.remove('visible');
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+async function setProgress(fill, pct, status, p, s) {
+  fill.style.width = p + '%';
+  pct.textContent = p + '%';
+  status.textContent = s;
+  await sleep(10);
+}
+
+// ── UPSCALE ENGINE ──
+// ── 모드별 자동 파라미터 ──
+function getModeParams(mode, userOpts) {
+  switch(mode) {
+    case 'lanczos':
+      return {
+        denoiseBoost: 0.05,   // 약한 노이즈 제거
+        satBoost:     0,       // 채도 변화 없음
+        hdrBoost:     0,       // HDR 없음
+        sharpBoost:   0.12,    // 단계별 sharpening 내부 처리
+        autoColor:    false,
+        forceEdge:    false,
+        edgeMult:     1.0,
+      };
+    case 'photo':
+      return {
+        denoiseBoost: 0.15,   // 노이즈 제거 강화 (사진 grain 제거)
+        satBoost:     0.08,   // 채도 소폭 up (자연스러운 색감)
+        hdrBoost:     0.12,   // 명암 대비 소폭 up
+        sharpBoost:   0.08,
+        autoColor:    true,   // 화이트밸런스 자동
+        forceEdge:    false,
+        edgeMult:     1.1,
+      };
+    case 'anime':
+      return {
+        denoiseBoost: -0.05,  // 노이즈 제거 최소 (선 디테일 보존)
+        satBoost:     0.25,   // 채도 강하게 (채색 선명도)
+        hdrBoost:     0.05,
+        sharpBoost:   0.25,   // 윤곽선 강하게
+        autoColor:    false,
+        forceEdge:    true,
+        edgeMult:     1.8,    // 엣지 배율 최대
+      };
+    default: // bicubic
+      return {
+        denoiseBoost: 0,
+        satBoost:     0,
+        hdrBoost:     0,
+        sharpBoost:   0,
+        autoColor:    false,
+        forceEdge:    false,
+        edgeMult:     1.0,
+      };
+  }
+}
+
+function applyDenoise(imgData, w, h, strength) {
+  const d = new Uint8ClampedArray(imgData.data);
+  const src = imgData.data;
+  const r = Math.max(1, Math.round(strength * 2));
+  for (let y = r; y < h - r; y++) {
+    for (let x = r; x < w - r; x++) {
+      let rS=0,gS=0,bS=0,cnt=0;
+      for (let dy=-r;dy<=r;dy++) for (let dx=-r;dx<=r;dx++) {
+        const i=((y+dy)*w+(x+dx))*4;
+        rS+=src[i]; gS+=src[i+1]; bS+=src[i+2]; cnt++;
+      }
+      const i=(y*w+x)*4, bl=strength*0.6;
+      d[i]  =src[i]  *(1-bl)+(rS/cnt)*bl;
+      d[i+1]=src[i+1]*(1-bl)+(gS/cnt)*bl;
+      d[i+2]=src[i+2]*(1-bl)+(bS/cnt)*bl;
+    }
+  }
+  return new ImageData(d, w, h);
+}
+
+function applyColorEnhancement(imgData, w, h, sat, skinTone, hdr) {
+  const d = new Uint8ClampedArray(imgData.data);
+  const src = imgData.data;
+
+  for (let i = 0; i < src.length; i += 4) {
+    let r = src[i], g = src[i+1], b = src[i+2];
+
+    // 채도 조정
+    const lum = 0.299*r + 0.587*g + 0.114*b;
+    r = lum + (r - lum) * sat;
+    g = lum + (g - lum) * sat;
+    b = lum + (b - lum) * sat;
+
+    // HDR S-커브
+    if (hdr > 0.01) {
+      r = hdrCurve(r/255, hdr) * 255;
+      g = hdrCurve(g/255, hdr) * 255;
+      b = hdrCurve(b/255, hdr) * 255;
+    }
+
+    d[i]   = clamp(r);
+    d[i+1] = clamp(g);
+    d[i+2] = clamp(b);
+    d[i+3] = src[i+3];
+  }
+
+  // 피부톤 보정 — 전체 밝기 lift (감마 보정 방식, 그림자 명암 유지)
+  if (skinTone) {
+    // 감마 < 1 → 밝아짐, 어두운 영역은 상대적으로 덜 올라가 그림자 명암 보존
+    const gamma = 0.78; // 0.7~0.85 사이 — 선명하고 밝되 검정은 검정으로
+    for (let i = 0; i < d.length; i += 4) {
+      d[i]   = clamp(Math.pow(d[i]   / 255, gamma) * 255);
+      d[i+1] = clamp(Math.pow(d[i+1] / 255, gamma) * 255);
+      d[i+2] = clamp(Math.pow(d[i+2] / 255, gamma) * 255);
+    }
+    applySkinToneCorrection(d, w, h);
+  }
+
+  return new ImageData(d, w, h);
+}
+
+function hdrCurve(v, s) {
+  // 명암 대비 커브:
+  // - 어두운 부분(v < 0.5): 밝게 lift (그림자 디테일 살아남)
+  // - 밝은 부분(v > 0.5): 어둡게 compress (하이라이트 날아가지 않음)
+  // - 중간 톤: S자 완만하게 유지해 대비 강화
+  const t = v - 0.5;
+  const lift = -t * Math.abs(t) * 2.0 * s;
+  const midContrast = t * (1 + s * 0.4) + 0.5;
+  return Math.min(1, Math.max(0, midContrast + lift * s));
+}
+
+// ── 피부톤 보정 ──
+// RGB → HSV 변환 후 피부색 범위 픽셀만 선택적으로 보정
+function applySkinToneCorrection(d, w, h) {
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i+1], b = d[i+2];
+
+    // RGB → HSV
+    const rn = r/255, gn = g/255, bn = b/255;
+    const max = Math.max(rn, gn, bn);
+    const min = Math.min(rn, gn, bn);
+    const delta = max - min;
+
+    let h_ = 0;
+    if (delta > 0) {
+      if (max === rn)      h_ = 60 * (((gn - bn) / delta) % 6);
+      else if (max === gn) h_ = 60 * ((bn - rn) / delta + 2);
+      else                 h_ = 60 * ((rn - gn) / delta + 4);
+      if (h_ < 0) h_ += 360;
+    }
+    const s_ = max === 0 ? 0 : delta / max;
+    const v_ = max;
+
+    // 피부색 감지 범위 (다양한 피부톤 포함)
+    // H: 0~50° (붉은-주황-노란 계열)
+    // S: 0.12~0.90 (너무 회색/흰색/포화 제외)
+    // V: 0.25~1.0  (너무 어두운 부분 제외)
+    const isSkin = (
+      (h_ >= 0 && h_ <= 50) &&
+      (s_ >= 0.12 && s_ <= 0.90) &&
+      (v_ >= 0.25)
+    );
+
+    if (!isSkin) continue;
+
+    // 감지된 피부 픽셀에 적용하는 보정:
+    // 1) 붉은기 과도하면 살짝 낮춤 (H가 0~15° 일 때)
+    // 2) 채도를 자연스럽게 평탄화 (과채도 줄이기)
+    // 3) 밝기 균일화 (너무 어두운 피부를 약간 lift)
+    let newR = r, newG = g, newB = b;
+
+    // 붉은기 완화 (H 0~18°이고 S가 높으면)
+    if (h_ <= 18 && s_ > 0.45) {
+      const redReduction = (s_ - 0.45) * 0.18;
+      newR = clamp(r * (1 - redReduction));
+      newG = clamp(g * (1 + redReduction * 0.3));
+    }
+
+    // 채도 평탄화: s_ > 0.65이면 자연스럽게 낮춤
+    if (s_ > 0.65) {
+      const overSat = (s_ - 0.65) * 0.5;
+      const lum = 0.299 * newR + 0.587 * newG + 0.114 * newB;
+      newR = clamp(newR + (lum - newR) * overSat);
+      newG = clamp(newG + (lum - newG) * overSat);
+      newB = clamp(newB + (lum - newB) * overSat);
+    }
+
+    // 밝기 lift: v_ 0.25~0.45 구간 피부 살짝 밝게
+    if (v_ < 0.45) {
+      const lift = (0.45 - v_) * 0.15;
+      newR = clamp(newR + 255 * lift);
+      newG = clamp(newG + 255 * lift);
+      newB = clamp(newB + 255 * lift);
+    }
+
+    // 피부 마스크 강도: 경계 부드럽게 (가장자리 피부 픽셀은 50% 블렌드)
+    const skinStrength = Math.min(1, (s_ - 0.12) / 0.15) * Math.min(1, (50 - h_) / 8 + 0.5);
+    d[i]   = clamp(r + (newR - r) * skinStrength);
+    d[i+1] = clamp(g + (newG - g) * skinStrength);
+    d[i+2] = clamp(b + (newB - b) * skinStrength);
+  }
+}
+
+function applyUnsharpMask(imgData, w, h, amount, edgeMult) {
+  // ── 3단계 샤프닝 파이프라인 ──
+  // 1) Fine detail (radius 0.8) — 미세 텍스처 복원
+  // 2) Mid-frequency (radius 2.0) — 윤곽선 강화
+  // 3) Luminance-only edge boost — 색 노이즈 없이 엣지만 극대화
+
+  const src = imgData.data;
+  let d = new Uint8ClampedArray(src);
+
+  // strength 스케일: amount 0→0, 1→최대. 구간을 넓게
+  const baseStr = amount * 9.0 * edgeMult;   // mid-frequency 윤곽선 강화
+  const fineStr = amount * 5.5 * edgeMult;   // fine detail 미세 텍스처
+
+  // Pass 1 — fine detail (작은 radius)
+  if (amount > 0.01) {
+    const blur1 = gaussianBlur(d, w, h, 0.8);
+    const tmp1  = new Uint8ClampedArray(d);
+    for (let i = 0; i < d.length; i += 4) {
+      tmp1[i]   = clamp(d[i]   + fineStr * (d[i]   - blur1[i]));
+      tmp1[i+1] = clamp(d[i+1] + fineStr * (d[i+1] - blur1[i+1]));
+      tmp1[i+2] = clamp(d[i+2] + fineStr * (d[i+2] - blur1[i+2]));
+      tmp1[i+3] = d[i+3];
+    }
+    d = tmp1;
+  }
+
+  // Pass 2 — mid-frequency (넓은 radius)
+  if (amount > 0.01) {
+    const blur2 = gaussianBlur(d, w, h, 2.0);
+    const tmp2  = new Uint8ClampedArray(d);
+    for (let i = 0; i < d.length; i += 4) {
+      tmp2[i]   = clamp(d[i]   + baseStr * (d[i]   - blur2[i]));
+      tmp2[i+1] = clamp(d[i+1] + baseStr * (d[i+1] - blur2[i+1]));
+      tmp2[i+2] = clamp(d[i+2] + baseStr * (d[i+2] - blur2[i+2]));
+      tmp2[i+3] = d[i+3];
+    }
+    d = tmp2;
+  }
+
+  // Pass 3 — luminance edge boost (채도는 건드리지 않고 밝기 채널만)
+  // edgeMult > 1이면 (AI 엣지 ON) 추가 윤곽 강조
+  if (edgeMult > 1.0 && amount > 0.01) {
+    const blur3 = gaussianBlur(d, w, h, 1.2);
+    const tmp3  = new Uint8ClampedArray(d);
+    const edgeBoost = (edgeMult - 1.0) * amount * 7.0;
+    for (let i = 0; i < d.length; i += 4) {
+      // 루마 기반 엣지 강도 계산
+      const lumSrc  = 0.299*d[i]      + 0.587*d[i+1]      + 0.114*d[i+2];
+      const lumBlur = 0.299*blur3[i]  + 0.587*blur3[i+1]  + 0.114*blur3[i+2];
+      const diff = lumSrc - lumBlur;
+      tmp3[i]   = clamp(d[i]   + edgeBoost * diff);
+      tmp3[i+1] = clamp(d[i+1] + edgeBoost * diff);
+      tmp3[i+2] = clamp(d[i+2] + edgeBoost * diff);
+      tmp3[i+3] = d[i+3];
+    }
+    d = tmp3;
+  }
+
+  return new ImageData(d, w, h);
+}
+
+function gaussianBlur(src, w, h, radius) {
+  const d=new Float32Array(src.length);
+  const kernel=gaussKernel(radius);
+  const ks=kernel.length, half=Math.floor(ks/2);
+  const tmp=new Float32Array(src.length);
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
+    let r=0,g=0,b=0,ws=0;
+    for (let k=0;k<ks;k++) {
+      const sx=Math.min(w-1,Math.max(0,x+k-half));
+      const i=(y*w+sx)*4;
+      r+=src[i]*kernel[k];g+=src[i+1]*kernel[k];b+=src[i+2]*kernel[k];ws+=kernel[k];
+    }
+    const i=(y*w+x)*4; tmp[i]=r/ws;tmp[i+1]=g/ws;tmp[i+2]=b/ws;tmp[i+3]=src[i+3];
+  }
+  for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
+    let r=0,g=0,b=0,ws=0;
+    for (let k=0;k<ks;k++) {
+      const sy=Math.min(h-1,Math.max(0,y+k-half));
+      const i=(sy*w+x)*4;
+      r+=tmp[i]*kernel[k];g+=tmp[i+1]*kernel[k];b+=tmp[i+2]*kernel[k];ws+=kernel[k];
+    }
+    const i=(y*w+x)*4; d[i]=r/ws;d[i+1]=g/ws;d[i+2]=b/ws;d[i+3]=tmp[i+3];
+  }
+  return d;
+}
+
+function gaussKernel(r) {
+  const s=r*0.5, size=Math.ceil(r*3)*2+1, k=[];
+  for (let i=0;i<size;i++){const x=i-Math.floor(size/2);k.push(Math.exp(-x*x/(2*s*s)));}
+  return k;
+}
+function clamp(v){return Math.min(255,Math.max(0,Math.round(v)));}
+
+// ── SHOW RESULTS ──
+function showResults(startTime) {
+  const section = document.getElementById('previewSection');
+  section.classList.add('visible');
+
+  const cResult = document.getElementById('canvasResult');
+  const cOrig   = document.getElementById('canvasOriginal');
+
+  // Draw upscaled result
+  cResult.width  = resultCanvas.width;
+  cResult.height = resultCanvas.height;
+  cResult.getContext('2d').drawImage(resultCanvas, 0, 0);
+
+  // Draw original stretched to same pixel dimensions as result (for compare overlay)
+  cOrig.width  = resultCanvas.width;
+  cOrig.height = resultCanvas.height;
+  const oc = cOrig.getContext('2d');
+  oc.imageSmoothingEnabled = true;
+  oc.imageSmoothingQuality = 'high';
+  oc.drawImage(originalImage, 0, 0, resultCanvas.width, resultCanvas.height);
+
+  // Reset divider to center
+  dividerX = 50;
+  cOrig.style.clipPath = 'inset(0 50% 0 0)';
+  document.getElementById('divider').style.left = '50%';
+
+  document.getElementById('origSize').textContent    = `원본: ${originalImage.width}×${originalImage.height}`;
+  document.getElementById('newSize').textContent     = `결과: ${resultCanvas.width}×${resultCanvas.height}`;
+  document.getElementById('scaleFactor').textContent = `×${selectedScale} 업스케일`;
+
+  const elapsed  = ((Date.now()-startTime)/1000).toFixed(1);
+  const sharpVal = parseInt(document.getElementById('sharpSlider').value);
+  document.getElementById('statPixels').textContent = (selectedScale*selectedScale)+'×';
+  document.getElementById('statSharp').textContent  = sharpVal > 0 ? '+'+Math.round(sharpVal*1.8)+'%' : '원본 유지';
+  document.getElementById('statColor').textContent  = '32bit';
+  document.getElementById('statTime').textContent   = elapsed+'s';
+
+  section.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  initCompare();
+  initDownloads();
+}
+
+// ── COMPARE SLIDER ──
+let compareListenersAdded = false;
+function initCompare() {
+  const cOrig = document.getElementById('canvasOriginal');
+  const divider = document.getElementById('divider');
+  const container = document.getElementById('compareContainer');
+
+  function update(clientX) {
+    const rect = container.getBoundingClientRect();
+    dividerX = Math.min(95, Math.max(5, (clientX - rect.left) / rect.width * 100));
+    divider.style.left = dividerX + '%';
+    cOrig.style.clipPath = `inset(0 ${(100 - dividerX).toFixed(1)}% 0 0)`;
+  }
+
+  if (!compareListenersAdded) {
+    compareListenersAdded = true;
+    divider.addEventListener('mousedown', e => { isDragging = true; e.preventDefault(); });
+    container.addEventListener('mousemove', e => { if (isDragging) update(e.clientX); });
+    document.addEventListener('mouseup', () => isDragging = false);
+    divider.addEventListener('touchstart', e => { isDragging = true; e.preventDefault(); });
+    container.addEventListener('touchmove', e => { if (isDragging) update(e.touches[0].clientX); });
+    document.addEventListener('touchend', () => isDragging = false);
+  }
+}
+
+// ── DOWNLOADS ──
+function initDownloads() {
+  document.getElementById('dlPNG').onclick  = ()=>download('image/png',  'upscaled.png');
+  document.getElementById('dlJPG').onclick  = ()=>download('image/jpeg', 'upscaled.jpg');
+  document.getElementById('dlWEBP').onclick = ()=>download('image/webp', 'upscaled.webp');
+}
+function download(mime, filename) {
+  if (!resultCanvas) return;
+  const url = resultCanvas.toDataURL(mime, mime==='image/jpeg' ? 0.99 : undefined);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename; a.click();
+}
+
+// ════════════════════════════════════════════
+// ── 압축 전용 섹션 JS ──
+let compressOrigFile = null;
+let compressOrigImage = null;
+let compressedBlob = null;
+let compressTargetMB = 1;
+let compressFormat = 'image/jpeg';
+
+const compressZone = document.getElementById('compressUploadZone');
+const compressFileInput = document.getElementById('compressFileInput');
+
+compressZone.addEventListener('click', () => compressFileInput.click());
+compressZone.addEventListener('dragover', e => { e.preventDefault(); compressZone.classList.add('drag-over'); });
+compressZone.addEventListener('dragleave', () => compressZone.classList.remove('drag-over'));
+compressZone.addEventListener('drop', e => {
+  e.preventDefault(); compressZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) loadCompressImage(file);
+});
+compressFileInput.addEventListener('change', e => {
+  if (e.target.files[0]) loadCompressImage(e.target.files[0]);
+  compressFileInput.value = '';
+});
+
+function loadCompressImage(file) {
+  compressOrigFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      compressOrigImage = img;
+      document.getElementById('compressUploadTitle').textContent = `✓ ${file.name}`;
+      document.getElementById('compressUploadDesc').textContent =
+        `${img.width} × ${img.height}px · ${formatBytes(file.size)}`;
+      const thumb = document.getElementById('compressThumb');
+      thumb.src = ev.target.result;
+      thumb.classList.add('visible');
+      document.getElementById('compressControls').classList.add('visible');
+      document.getElementById('compressResult').classList.remove('visible');
+      compressedBlob = null;
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+document.querySelectorAll('.target-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.target-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    compressTargetMB = parseFloat(btn.dataset.mb);
+  });
+});
+
+document.querySelectorAll('.format-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    compressFormat = btn.dataset.fmt;
+  });
+});
+
+document.getElementById('compressBtn').addEventListener('click', async () => {
+  if (!compressOrigImage || !compressOrigFile) return;
+  await runCompress();
+});
+
+document.getElementById('compressDlBtn').addEventListener('click', () => {
+  if (!compressedBlob) return;
+  const ext = compressFormat === 'image/jpeg' ? 'jpg'
+            : compressFormat === 'image/webp' ? 'webp' : 'png';
+  const url = URL.createObjectURL(compressedBlob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `compressed.${ext}`; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+});
+
+async function runCompress() {
+  const btn    = document.getElementById('compressBtn');
+  const prog   = document.getElementById('compressProgress');
+  const fill   = document.getElementById('compressProgressFill');
+  const status = document.getElementById('compressProgressStatus');
+  const pct    = document.getElementById('compressProgressPct');
+
+  btn.disabled = true;
+  prog.classList.add('visible');
+  document.getElementById('compressResult').classList.remove('visible');
+
+  const targetBytes = compressTargetMB * 1024 * 1024;
+  const origBytes   = compressOrigFile.size;
+  const isPNG       = compressFormat === 'image/png';
+
+  setCompressProgress(fill, pct, status, 10, '이미지 분석 중...');
+  await sleep(150);
+
+  let resultBlob;
+  if (origBytes <= targetBytes) {
+    setCompressProgress(fill, pct, status, 60, '형식 변환 중...');
+    await sleep(200);
+    resultBlob = await canvasToBlob(compressOrigImage, compressFormat, 0.92);
+  } else if (isPNG) {
+    resultBlob = await compressByResize(compressOrigImage, targetBytes, fill, pct, status);
+  } else {
+    resultBlob = await compressByQuality(compressOrigImage, targetBytes, compressFormat, fill, pct, status);
+    if (resultBlob.size > targetBytes) {
+      setCompressProgress(fill, pct, status, 85, '해상도 조정 중...');
+      await sleep(150);
+      resultBlob = await compressByResize(compressOrigImage, targetBytes, fill, pct, status, compressFormat);
+    }
+  }
+
+  setCompressProgress(fill, pct, status, 100, '완료!');
+  await sleep(200);
+
+  compressedBlob = resultBlob;
+  const ratio = ((1 - resultBlob.size / origBytes) * 100).toFixed(1);
+  document.getElementById('cresOrigSize').textContent = formatBytes(origBytes);
+  document.getElementById('cresOrigDim').textContent  = `${compressOrigImage.width} × ${compressOrigImage.height}`;
+  document.getElementById('cresNewSize').textContent  = formatBytes(resultBlob.size);
+  document.getElementById('cresRatio').textContent    = resultBlob.size < origBytes ? `${ratio}% 절감` : '이미 최적화됨';
+  document.getElementById('compressResult').classList.add('visible');
+
+  btn.disabled = false;
+  prog.classList.remove('visible');
+}
+
+async function compressByQuality(img, targetBytes, mime, fill, pct, status) {
+  let lo = 0.1, hi = 0.94, best = null;
+  for (let i = 0; i < 12; i++) {
+    const mid = (lo + hi) / 2;
+    setCompressProgress(fill, pct, status, 15 + Math.round(i/12*65), `품질 최적화 중... (Q${Math.round(mid*100)})`);
+    await sleep(40);
+    const blob = await canvasToBlob(img, mime, mid);
+    if (!best || (blob.size <= targetBytes && blob.size > (best.size||0))) best = blob;
+    if (blob.size > targetBytes) hi = mid; else lo = mid;
+    if (hi - lo < 0.01) break;
+  }
+  return best || await canvasToBlob(img, mime, lo);
+}
+
+async function compressByResize(img, targetBytes, fill, pct, status, mime = 'image/jpeg') {
+  let best = null;
+  for (let i = 0; i < 10; i++) {
+    const scale = 1.0 - (i/10)*0.85;
+    setCompressProgress(fill, pct, status, 20 + Math.round(i/10*70), `해상도 조정 중... (${Math.round(scale*100)}%)`);
+    await sleep(40);
+    const blob = await canvasResizeToBlob(img, scale, mime, 0.9);
+    if (blob.size <= targetBytes) { best = blob; break; }
+    best = blob;
+  }
+  return best;
+}
+
+function setCompressProgress(fill, pct, status, p, s) {
+  fill.style.width = p + '%'; pct.textContent = p + '%'; status.textContent = s;
+}
+
+// ── INLINE COMPRESS ENGINE ──
+// ════════════════════════════════════════════
+let inlineCompressedBlob = null;
+let inlineTargetMB = 1;
+
+// Target MB small buttons
+document.querySelectorAll('.target-btn-sm').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.target-btn-sm').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    inlineTargetMB = parseFloat(btn.dataset.mb);
+  });
+});
+
+document.getElementById('compressInlineBtn').addEventListener('click', async () => {
+  if (!resultCanvas) return;
+  await runInlineCompress();
+});
+
+document.getElementById('compressInlineDl').addEventListener('click', () => {
+  if (!inlineCompressedBlob) return;
+  const url = URL.createObjectURL(inlineCompressedBlob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'compressed.jpg'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+});
+
+async function runInlineCompress() {
+  const btn = document.getElementById('compressInlineBtn');
+  const prog = document.getElementById('compressInlineProgress');
+  const fill = document.getElementById('compressInlineFill');
+  const status = document.getElementById('compressInlineStatus');
+  const pct = document.getElementById('compressInlinePct');
+
+  btn.disabled = true;
+  prog.classList.add('visible');
+  document.getElementById('compressInlineResult').classList.remove('visible');
+
+  const targetBytes = inlineTargetMB * 1024 * 1024;
+
+  // Estimate current size from resultCanvas as JPEG at 0.95
+  const sampleBlob = await canvasToBlob(resultCanvas, 'image/jpeg', 0.95);
+  const origEstimate = sampleBlob.size;
+
+  setCompressProgress(fill, pct, status, 10, '이미지 분석 중...');
+  await sleep(180);
+
+  let resultBlob;
+  if (origEstimate <= targetBytes) {
+    setCompressProgress(fill, pct, status, 70, '최적 품질로 변환 중...');
+    await sleep(200);
+    resultBlob = await canvasToBlob(resultCanvas, 'image/jpeg', 0.92);
+  } else {
+    resultBlob = await inlineCompressByQuality(resultCanvas, targetBytes, fill, pct, status);
+    if (resultBlob.size > targetBytes) {
+      setCompressProgress(fill, pct, status, 86, '해상도 조정 중...');
+      await sleep(180);
+      resultBlob = await inlineCompressByResize(resultCanvas, targetBytes, fill, pct, status);
+    }
+  }
+
+  setCompressProgress(fill, pct, status, 100, '완료!');
+  await sleep(250);
+
+  inlineCompressedBlob = resultBlob;
+
+  const ratio = ((1 - resultBlob.size / origEstimate) * 100).toFixed(1);
+  document.getElementById('cinlineOrig').textContent = formatBytes(origEstimate);
+  document.getElementById('cinlineNew').textContent  = formatBytes(resultBlob.size);
+  document.getElementById('cinlineRatio').textContent =
+    resultBlob.size < origEstimate ? `${ratio}% 절감` : '이미 최적화됨';
+
+  document.getElementById('compressInlineResult').classList.add('visible');
+  btn.disabled = false;
+  prog.classList.remove('visible');
+}
+
+async function inlineCompressByQuality(canvas, targetBytes, fill, pct, status) {
+  let lo = 0.1, hi = 0.94, best = null;
+  for (let i = 0; i < 12; i++) {
+    const mid = (lo + hi) / 2;
+    const progress = 15 + Math.round(i / 12 * 65);
+    setCompressProgress(fill, pct, status, progress, `품질 최적화 중... (Q${Math.round(mid*100)})`);
+    await sleep(50);
+    const blob = await canvasToBlob(canvas, 'image/jpeg', mid);
+    if (!best || (blob.size <= targetBytes && blob.size > (best.size || 0))) best = blob;
+    if (blob.size > targetBytes) hi = mid; else lo = mid;
+    if (hi - lo < 0.01) break;
+  }
+  return best || await canvasToBlob(canvas, 'image/jpeg', lo);
+}
+
+async function inlineCompressByResize(canvas, targetBytes, fill, pct, status) {
+  let best = null;
+  for (let i = 0; i < 10; i++) {
+    const scale = 1.0 - (i / 10) * 0.8;
+    const progress = 20 + Math.round(i / 10 * 70);
+    setCompressProgress(fill, pct, status, progress, `해상도 조정 중... (${Math.round(scale*100)}%)`);
+    await sleep(50);
+    const blob = await canvasResizeToBlob(canvas, scale, 'image/jpeg', 0.88);
+    if (blob.size <= targetBytes) { best = blob; break; }
+    best = blob;
+  }
+  return best;
+}
+
+function canvasToBlob(imgOrCanvas, mime, quality) {
+  return new Promise(resolve => {
+    let c;
+    if (imgOrCanvas instanceof HTMLCanvasElement) {
+      c = imgOrCanvas;
+    } else {
+      c = document.createElement('canvas');
+      c.width = imgOrCanvas.width; c.height = imgOrCanvas.height;
+      c.getContext('2d').drawImage(imgOrCanvas, 0, 0);
+    }
+    c.toBlob(resolve, mime, quality);
+  });
+}
+
+function canvasResizeToBlob(canvas, scale, mime, quality) {
+  return new Promise(resolve => {
+    const c = document.createElement('canvas');
+    c.width  = Math.max(1, Math.round(canvas.width  * scale));
+    c.height = Math.max(1, Math.round(canvas.height * scale));
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(canvas, 0, 0, c.width, c.height);
+    c.toBlob(resolve, mime, quality);
+  });
+}
+
+function setCompressProgress(fill, pct, status, p, s) {
+  fill.style.width = p + '%';
+  pct.textContent = p + '%';
+  status.textContent = s;
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+</script>
+</body>
+</html>
