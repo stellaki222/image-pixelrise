@@ -334,18 +334,18 @@
   /* Download */
   .download-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
   .dl-btn {
-    flex: 1; min-width: 150px; padding: 13px 18px;
-    border: 1px solid var(--border-dark); background: #fff;
+    flex: 1; min-width: 120px; padding: 13px 18px;
+    border: 1.5px solid var(--border-dark); background: #fff;
     color: var(--text); border-radius: 10px;
     font-family: 'Pretendard', sans-serif; font-size: 14px; font-weight: 600;
     cursor: pointer; transition: all 0.18s; text-align: center;
   }
-  .dl-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .dl-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); transform: translateY(-1px); }
   .dl-btn.primary {
-    background: var(--accent); border-color: var(--accent); color: #fff;
-    box-shadow: 0 3px 14px rgba(53,73,255,0.28);
+    border-color: var(--accent); color: var(--accent); background: var(--accent-light);
+    box-shadow: 0 2px 10px rgba(53,73,255,0.13);
   }
-  .dl-btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 5px 18px rgba(53,73,255,0.36); color: #fff; }
+  .dl-btn.primary:hover { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 5px 18px rgba(53,73,255,0.28); }
 
   /* Footer */
   footer {
@@ -505,6 +505,60 @@
   }
   .cres-card.highlight { border-color: rgba(53,73,255,0.3); background: var(--accent-light); }
   .compress-dl-row { display: flex; gap: 10px; }
+
+  /* 멀티파일 목록 */
+  .compress-file-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; background: #fff;
+    border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px;
+  }
+  .compress-file-thumb {
+    width: 44px; height: 44px; object-fit: cover;
+    border-radius: 6px; border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .compress-file-info { flex: 1; min-width: 0; }
+  .compress-file-name {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .compress-file-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .compress-file-status { font-size: 12px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+  .compress-file-status.waiting  { color: var(--muted); }
+  .compress-file-status.running  { color: var(--accent); }
+  .compress-file-status.done     { color: var(--success); }
+  .compress-file-remove {
+    width: 22px; height: 22px; border-radius: 50%; border: none;
+    background: var(--border-dark); color: var(--muted);
+    cursor: pointer; font-size: 13px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .compress-file-remove:hover { background: #fecaca; color: #dc2626; }
+  .compress-file-progress {
+    height: 3px; background: var(--border); border-radius: 2px; margin-top: 6px; overflow: hidden;
+  }
+  .compress-file-progress-fill {
+    height: 100%; background: var(--accent); border-radius: 2px;
+    width: 0%; transition: width 0.2s;
+  }
+  .compress-add-more {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px; border: 1.5px dashed var(--border-dark); border-radius: 10px;
+    color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer;
+    margin-bottom: 8px; transition: all 0.18s;
+  }
+  .compress-add-more:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+  .compress-batch-summary {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+  }
+  .cbs-card {
+    background: #fff; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; text-align: center;
+  }
+  .cbs-card.highlight { border-color: rgba(53,73,255,0.3); background: var(--accent-light); }
+  .cbs-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .cbs-val { font-size: 16px; font-weight: 700; color: var(--text); }
+  .cbs-val.green { color: var(--success); }
 
   /* ── 처리 중 로딩 오버레이 ── */
   .preview-loading {
@@ -730,8 +784,8 @@
     </div>
 
     <div class="download-row">
-      <button class="dl-btn primary" id="dlPNG">⬇ PNG</button>
-      <button class="dl-btn" id="dlJPG">⬇ JPG</button>
+      <button class="dl-btn primary" id="dlJPG">⬇ JPG</button>
+      <button class="dl-btn" id="dlPNG">⬇ PNG</button>
       <button class="dl-btn" id="dlWEBP">⬇ WEBP</button>
     </div>
 
@@ -742,12 +796,20 @@
           <div class="inline-compress-title">📦 Compress Result</div>
           <div class="inline-compress-sub">화질 유지 · 파일 크기 최소화 · 최대 5MB 이하</div>
         </div>
-        <div class="target-inline-btns">
-          <span style="font-size:11px;font-family:'Pretendard',monospace;color:var(--muted);margin-right:6px;">목표</span>
-          <div class="target-btn-sm active" data-mb="1">1MB</div>
-          <div class="target-btn-sm" data-mb="2">2MB</div>
-          <div class="target-btn-sm" data-mb="3">3MB</div>
-          <div class="target-btn-sm" data-mb="5">5MB</div>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+          <div class="target-inline-btns">
+            <span style="font-size:11px;font-family:'Pretendard',monospace;color:var(--muted);margin-right:6px;">목표</span>
+            <div class="target-btn-sm active" data-mb="1">1MB</div>
+            <div class="target-btn-sm" data-mb="2">2MB</div>
+            <div class="target-btn-sm" data-mb="3">3MB</div>
+            <div class="target-btn-sm" data-mb="5">5MB</div>
+          </div>
+          <div class="target-inline-btns">
+            <span style="font-size:11px;font-family:'Pretendard',monospace;color:var(--muted);margin-right:6px;">형식</span>
+            <div class="target-btn-sm fmt-btn-sm active" data-fmt="image/jpeg">JPG</div>
+            <div class="target-btn-sm fmt-btn-sm" data-fmt="image/png">PNG</div>
+            <div class="target-btn-sm fmt-btn-sm" data-fmt="image/webp">WEBP</div>
+          </div>
         </div>
       </div>
       <button class="compress-inline-btn" id="compressInlineBtn">🗜️ &nbsp;업스케일 결과 압축하기</button>
@@ -787,18 +849,22 @@
       <div class="section-label-icon" style="background:var(--accent);">📦</div>
       <div>
         <div class="section-label-title">용량 압축</div>
-        <div class="section-label-sub">화질 유지 · 파일 크기 최소화</div>
+        <div class="section-label-sub">최대 10개 동시 압축 · 화질 유지 · 파일 크기 최소화</div>
       </div>
     </div>
 
   <div class="compress-standalone-upload">
     <div class="upload-zone" id="compressUploadZone" style="border-color: var(--border-dark);">
-      <input type="file" id="compressFileInput" accept="image/*">
+      <input type="file" id="compressFileInput" accept="image/*" multiple>
       <div class="upload-icon">🗜️</div>
       <h3 id="compressUploadTitle">압축할 이미지를 드래그하거나 클릭</h3>
-      <p id="compressUploadDesc">JPG, PNG, WEBP, BMP 지원 · 모든 크기 가능</p>
-      <img class="upload-thumb compress-thumb" id="compressThumb" alt="미리보기">
+      <p id="compressUploadDesc">JPG, PNG, WEBP, BMP 지원 · 최대 10개 동시 업로드</p>
     </div>
+  </div>
+
+  <!-- 파일 목록 -->
+  <div id="compressFileList" style="display:none; margin:0 20px;">
+    <div id="compressFileItems"></div>
   </div>
 
   <div class="compress-controls" id="compressControls">
@@ -820,32 +886,10 @@
         <div class="format-btn" data-fmt="image/png">PNG</div>
       </div>
     </div>
-    <button class="compress-btn" id="compressBtn">🗜️ &nbsp;용량 압축 시작</button>
-    <div class="compress-progress" id="compressProgress">
-      <div class="progress-bar-bg" style="margin-top:14px">
-        <div class="progress-bar-fill" id="compressProgressFill" style="width:0%"></div>
-      </div>
-      <div class="progress-text">
-        <span class="progress-status" id="compressProgressStatus">최적 품질 탐색 중...</span>
-        <span id="compressProgressPct">0%</span>
-      </div>
-    </div>
-    <div class="compress-result" id="compressResult">
-      <div class="compress-result-cards">
-        <div class="cres-card">
-          <div class="cres-label">원본 용량</div>
-          <div class="cres-val" id="cresOrigSize">—</div>
-          <div class="cres-sub" id="cresOrigDim">—</div>
-        </div>
-        <div class="cres-card highlight">
-          <div class="cres-label">압축 후 용량</div>
-          <div class="cres-val green" id="cresNewSize">—</div>
-          <div class="cres-sub" id="cresRatio">절감률 —</div>
-        </div>
-      </div>
-      <div class="compress-dl-row" style="margin-top:14px">
-        <button class="compress-dl-btn" id="compressDlBtn" style="width:100%">⬇ 압축 이미지 다운로드</button>
-      </div>
+    <button class="compress-btn" id="compressBtn">🗜️ &nbsp;압축 시작</button>
+    <div id="compressBatchResult" style="display:none; margin-top:16px;">
+      <div id="compressBatchSummary" class="compress-batch-summary"></div>
+      <button class="compress-dl-btn" id="compressBatchDlBtn" style="width:100%;margin-top:12px">⬇ 전체 ZIP 다운로드</button>
     </div>
   </div>
 
@@ -1499,13 +1543,14 @@ function download(mime, filename) {
 
 // ════════════════════════════════════════════
 // ── 압축 전용 섹션 JS ──
-let compressOrigFile = null;
-let compressOrigImage = null;
-let compressedBlob = null;
-let compressTargetMB = 1;
-let compressFormat = 'image/jpeg';
+// ── COMPRESS ENGINE (멀티파일) ──
+// ════════════════════════════════════════════
+let compressFiles     = [];   // { file, img, blob }
+let compressedBlobs   = [];
+let compressTargetMB  = 1;
+let compressFormat    = 'image/jpeg';
 
-const compressZone = document.getElementById('compressUploadZone');
+const compressZone      = document.getElementById('compressUploadZone');
 const compressFileInput = document.getElementById('compressFileInput');
 
 compressZone.addEventListener('click', () => compressFileInput.click());
@@ -1513,34 +1558,83 @@ compressZone.addEventListener('dragover', e => { e.preventDefault(); compressZon
 compressZone.addEventListener('dragleave', () => compressZone.classList.remove('drag-over'));
 compressZone.addEventListener('drop', e => {
   e.preventDefault(); compressZone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file && file.type.startsWith('image/')) loadCompressImage(file);
+  addCompressFiles([...e.dataTransfer.files]);
 });
 compressFileInput.addEventListener('change', e => {
-  if (e.target.files[0]) loadCompressImage(e.target.files[0]);
+  addCompressFiles([...e.target.files]);
   compressFileInput.value = '';
 });
 
-function loadCompressImage(file) {
-  compressOrigFile = file;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const img = new Image();
-    img.onload = () => {
-      compressOrigImage = img;
-      document.getElementById('compressUploadTitle').textContent = `✓ ${file.name}`;
-      document.getElementById('compressUploadDesc').textContent =
-        `${img.width} × ${img.height}px · ${formatBytes(file.size)}`;
-      const thumb = document.getElementById('compressThumb');
-      thumb.src = ev.target.result;
-      thumb.classList.add('visible');
-      document.getElementById('compressControls').classList.add('visible');
-      document.getElementById('compressResult').classList.remove('visible');
-      compressedBlob = null;
+function addCompressFiles(files) {
+  const allowed = files.filter(f => f.type.startsWith('image/')).slice(0, 10 - compressFiles.length);
+  if (!allowed.length) return;
+  let loaded = 0;
+  allowed.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        compressFiles.push({ file, img, blob: null });
+        loaded++;
+        if (loaded === allowed.length) renderCompressFileList();
+      };
+      img.src = ev.target.result;
+      img._src = ev.target.result;
     };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderCompressFileList() {
+  const listWrap  = document.getElementById('compressFileList');
+  const itemsWrap = document.getElementById('compressFileItems');
+  itemsWrap.innerHTML = '';
+
+  compressFiles.forEach((entry, i) => {
+    const div = document.createElement('div');
+    div.className = 'compress-file-item';
+    div.id = `cfi-${i}`;
+    div.innerHTML = `
+      <img class="compress-file-thumb" src="${entry.img._src}" alt="">
+      <div class="compress-file-info">
+        <div class="compress-file-name">${entry.file.name}</div>
+        <div class="compress-file-meta">${entry.img.width}×${entry.img.height} · ${formatBytes(entry.file.size)}</div>
+        <div class="compress-file-progress"><div class="compress-file-progress-fill" id="cfp-${i}"></div></div>
+      </div>
+      <div class="compress-file-status waiting" id="cfs-${i}">대기</div>
+      <button class="compress-file-remove" data-idx="${i}" title="제거">✕</button>
+    `;
+    itemsWrap.appendChild(div);
+  });
+
+  // 추가 버튼 (10개 미만일 때)
+  if (compressFiles.length < 10) {
+    const add = document.createElement('div');
+    add.className = 'compress-add-more';
+    add.innerHTML = '＋ 파일 추가';
+    add.addEventListener('click', () => compressFileInput.click());
+    itemsWrap.appendChild(add);
+  }
+
+  itemsWrap.querySelectorAll('.compress-file-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      compressFiles.splice(parseInt(btn.dataset.idx), 1);
+      renderCompressFileList();
+      if (!compressFiles.length) {
+        listWrap.style.display = 'none';
+        document.getElementById('compressControls').classList.remove('visible');
+        document.getElementById('compressBatchResult').style.display = 'none';
+        document.getElementById('compressUploadTitle').textContent = '압축할 이미지를 드래그하거나 클릭';
+        document.getElementById('compressUploadDesc').textContent = 'JPG, PNG, WEBP, BMP 지원 · 최대 10개 동시 업로드';
+      }
+    });
+  });
+
+  listWrap.style.display = 'block';
+  document.getElementById('compressControls').classList.add('visible');
+  document.getElementById('compressUploadTitle').textContent = `✓ ${compressFiles.length}개 파일 선택됨`;
+  document.getElementById('compressUploadDesc').textContent = `${compressFiles.length}/10개 · 클릭하거나 드래그해서 추가`;
+  document.getElementById('compressBatchResult').style.display = 'none';
 }
 
 document.querySelectorAll('.target-btn').forEach(btn => {
@@ -1560,69 +1654,151 @@ document.querySelectorAll('.format-btn').forEach(btn => {
 });
 
 document.getElementById('compressBtn').addEventListener('click', async () => {
-  if (!compressOrigImage || !compressOrigFile) return;
-  await runCompress();
+  if (!compressFiles.length) return;
+  await runBatchCompress();
 });
 
-document.getElementById('compressDlBtn').addEventListener('click', () => {
-  if (!compressedBlob) return;
-  const ext = compressFormat === 'image/jpeg' ? 'jpg'
-            : compressFormat === 'image/webp' ? 'webp' : 'png';
-  const url = URL.createObjectURL(compressedBlob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `compressed.${ext}`; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+document.getElementById('compressBatchDlBtn').addEventListener('click', async () => {
+  if (!compressedBlobs.length) return;
+  await downloadAllAsZip();
 });
 
-async function runCompress() {
-  const btn    = document.getElementById('compressBtn');
-  const prog   = document.getElementById('compressProgress');
-  const fill   = document.getElementById('compressProgressFill');
-  const status = document.getElementById('compressProgressStatus');
-  const pct    = document.getElementById('compressProgressPct');
-
+async function runBatchCompress() {
+  const btn = document.getElementById('compressBtn');
   btn.disabled = true;
-  prog.classList.add('visible');
-  document.getElementById('compressResult').classList.remove('visible');
+  compressedBlobs = [];
+  document.getElementById('compressBatchResult').style.display = 'none';
 
-  const targetBytes = compressTargetMB * 1024 * 1024;
-  const origBytes   = compressOrigFile.size;
-  const isPNG       = compressFormat === 'image/png';
+  for (let i = 0; i < compressFiles.length; i++) {
+    const entry = compressFiles[i];
+    const statusEl = document.getElementById(`cfs-${i}`);
+    const fillEl   = document.getElementById(`cfp-${i}`);
+    statusEl.className = 'compress-file-status running';
+    statusEl.textContent = '압축 중...';
+    fillEl.style.width = '10%';
 
-  setCompressProgress(fill, pct, status, 10, '이미지 분석 중...');
-  await sleep(150);
+    const targetBytes = compressTargetMB * 1024 * 1024;
+    const origBytes   = entry.file.size;
+    const isPNG       = compressFormat === 'image/png';
+    let resultBlob;
 
-  let resultBlob;
-  if (origBytes <= targetBytes) {
-    setCompressProgress(fill, pct, status, 60, '형식 변환 중...');
-    await sleep(200);
-    resultBlob = await canvasToBlob(compressOrigImage, compressFormat, 0.92);
-  } else if (isPNG) {
-    resultBlob = await compressByResize(compressOrigImage, targetBytes, fill, pct, status);
-  } else {
-    resultBlob = await compressByQuality(compressOrigImage, targetBytes, compressFormat, fill, pct, status);
-    if (resultBlob.size > targetBytes) {
-      setCompressProgress(fill, pct, status, 85, '해상도 조정 중...');
-      await sleep(150);
-      resultBlob = await compressByResize(compressOrigImage, targetBytes, fill, pct, status, compressFormat);
+    const fakeStatus = { textContent: '' };
+    const fakePct    = { textContent: '' };
+    const fakeFill   = { style: { width: '' },
+      _proxy: true,
+      set width(v) { fillEl.style.width = v; }
+    };
+    // 진행률을 파일 항목 프로그레스바로 연결
+    const pFill = { style: { width: '10%' } };
+    Object.defineProperty(pFill.style, 'width', {
+      set(v) { fillEl.style.width = v; },
+      get() { return fillEl.style.width; }
+    });
+
+    try {
+      if (origBytes <= targetBytes) {
+        fillEl.style.width = '60%';
+        await sleep(100);
+        resultBlob = await canvasToBlob(entry.img, compressFormat, 0.92);
+      } else if (isPNG) {
+        resultBlob = await compressByResizeSilent(entry.img, targetBytes, fillEl);
+      } else {
+        resultBlob = await compressByQualitySilent(entry.img, targetBytes, compressFormat, fillEl);
+        if (resultBlob.size > targetBytes) {
+          resultBlob = await compressByResizeSilent(entry.img, targetBytes, fillEl, compressFormat);
+        }
+      }
+    } catch(e) { resultBlob = null; }
+
+    fillEl.style.width = '100%';
+    entry.blob = resultBlob;
+    compressedBlobs.push({ name: entry.file.name, blob: resultBlob, origSize: origBytes });
+
+    if (resultBlob) {
+      const ratio = ((1 - resultBlob.size / origBytes) * 100).toFixed(0);
+      statusEl.className = 'compress-file-status done';
+      statusEl.textContent = `✓ ${formatBytes(resultBlob.size)} (${ratio}%↓)`;
+    } else {
+      statusEl.className = 'compress-file-status done';
+      statusEl.textContent = '오류';
     }
+    await sleep(50);
   }
 
-  setCompressProgress(fill, pct, status, 100, '완료!');
-  await sleep(200);
-
-  compressedBlob = resultBlob;
-  const ratio = ((1 - resultBlob.size / origBytes) * 100).toFixed(1);
-  document.getElementById('cresOrigSize').textContent = formatBytes(origBytes);
-  document.getElementById('cresOrigDim').textContent  = `${compressOrigImage.width} × ${compressOrigImage.height}`;
-  document.getElementById('cresNewSize').textContent  = formatBytes(resultBlob.size);
-  document.getElementById('cresRatio').textContent    = resultBlob.size < origBytes ? `${ratio}% 절감` : '이미 최적화됨';
-  document.getElementById('compressResult').classList.add('visible');
-
+  // 요약
+  const totalOrig = compressedBlobs.reduce((s, b) => s + b.origSize, 0);
+  const totalNew  = compressedBlobs.filter(b => b.blob).reduce((s, b) => s + b.blob.size, 0);
+  const totalRatio = ((1 - totalNew / totalOrig) * 100).toFixed(1);
+  const summary = document.getElementById('compressBatchSummary');
+  summary.innerHTML = `
+    <div class="cbs-card"><div class="cbs-label">파일 수</div><div class="cbs-val">${compressedBlobs.length}개</div></div>
+    <div class="cbs-card"><div class="cbs-label">원본 합계</div><div class="cbs-val">${formatBytes(totalOrig)}</div></div>
+    <div class="cbs-card highlight"><div class="cbs-label">압축 후 합계</div><div class="cbs-val green">${formatBytes(totalNew)}<br><span style="font-size:11px;font-weight:500">${totalRatio}% 절감</span></div></div>
+  `;
+  document.getElementById('compressBatchResult').style.display = 'block';
   btn.disabled = false;
-  prog.classList.remove('visible');
 }
 
+async function compressByQualitySilent(img, targetBytes, mime, fillEl) {
+  let lo = 0.1, hi = 0.94, best = null;
+  for (let i = 0; i < 12; i++) {
+    const mid = (lo + hi) / 2;
+    fillEl.style.width = (15 + Math.round(i/12*65)) + '%';
+    await sleep(30);
+    const blob = await canvasToBlob(img, mime, mid);
+    if (!best || (blob.size <= targetBytes && blob.size > (best.size||0))) best = blob;
+    if (blob.size > targetBytes) hi = mid; else lo = mid;
+    if (hi - lo < 0.01) break;
+  }
+  return best || await canvasToBlob(img, mime, lo);
+}
+
+async function compressByResizeSilent(img, targetBytes, fillEl, mime = 'image/jpeg') {
+  let best = null;
+  for (let i = 0; i < 10; i++) {
+    const scale = 1.0 - (i/10)*0.85;
+    fillEl.style.width = (20 + Math.round(i/10*70)) + '%';
+    await sleep(30);
+    const blob = await canvasResizeToBlob(img, scale, mime, 0.9);
+    if (blob.size <= targetBytes) { best = blob; break; }
+    best = blob;
+  }
+  return best;
+}
+
+async function downloadAllAsZip() {
+  const btn = document.getElementById('compressBatchDlBtn');
+  btn.disabled = true;
+  btn.textContent = 'ZIP 생성 중...';
+
+  // JSZip CDN 동적 로드
+  if (typeof JSZip === 'undefined') {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  const zip = new JSZip();
+  const ext = compressFormat === 'image/jpeg' ? 'jpg' : compressFormat === 'image/webp' ? 'webp' : 'png';
+  compressedBlobs.forEach(({ name, blob }) => {
+    if (!blob) return;
+    const baseName = name.replace(/\.[^.]+$/, '');
+    zip.file(`${baseName}_compressed.${ext}`, blob);
+  });
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(zipBlob);
+  const a = document.createElement('a'); a.href = url; a.download = 'compressed_images.zip'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+  btn.disabled = false;
+  btn.textContent = '⬇ 전체 ZIP 다운로드';
+}
+
+// 구버전 단일파일 함수 호환용 (inline compress에서 사용)
 async function compressByQuality(img, targetBytes, mime, fill, pct, status) {
   let lo = 0.1, hi = 0.94, best = null;
   for (let i = 0; i < 12; i++) {
@@ -1658,13 +1834,23 @@ function setCompressProgress(fill, pct, status, p, s) {
 // ════════════════════════════════════════════
 let inlineCompressedBlob = null;
 let inlineTargetMB = 1;
+let inlineFormat = 'image/jpeg';
 
 // Target MB small buttons
-document.querySelectorAll('.target-btn-sm').forEach(btn => {
+document.querySelectorAll('.target-btn-sm:not(.fmt-btn-sm)').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.target-btn-sm').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.target-btn-sm:not(.fmt-btn-sm)').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     inlineTargetMB = parseFloat(btn.dataset.mb);
+  });
+});
+
+// Format buttons
+document.querySelectorAll('.fmt-btn-sm').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.fmt-btn-sm').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    inlineFormat = btn.dataset.fmt;
   });
 });
 
@@ -1677,7 +1863,8 @@ document.getElementById('compressInlineDl').addEventListener('click', () => {
   if (!inlineCompressedBlob) return;
   const url = URL.createObjectURL(inlineCompressedBlob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'compressed.jpg'; a.click();
+  const ext = inlineFormat === 'image/png' ? 'png' : inlineFormat === 'image/webp' ? 'webp' : 'jpg';
+  a.href = url; a.download = `compressed.${ext}`; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 });
 
@@ -1693,25 +1880,35 @@ async function runInlineCompress() {
   document.getElementById('compressInlineResult').classList.remove('visible');
 
   const targetBytes = inlineTargetMB * 1024 * 1024;
-
-  // Estimate current size from resultCanvas as JPEG at 0.95
-  const sampleBlob = await canvasToBlob(resultCanvas, 'image/jpeg', 0.95);
+  const fmt = inlineFormat;
+  // PNG는 무손실이므로 품질 추정을 위해 jpeg 샘플 사용
+  const sampleBlob = await canvasToBlob(resultCanvas, fmt === 'image/png' ? 'image/png' : fmt, fmt === 'image/png' ? undefined : 0.95);
   const origEstimate = sampleBlob.size;
 
   setCompressProgress(fill, pct, status, 10, '이미지 분석 중...');
   await sleep(180);
 
   let resultBlob;
-  if (origEstimate <= targetBytes) {
+  if (fmt === 'image/png') {
+    // PNG는 무손실이라 quality 압축 대신 해상도만 줄임
+    setCompressProgress(fill, pct, status, 30, 'PNG 변환 중...');
+    await sleep(200);
+    resultBlob = await canvasToBlob(resultCanvas, 'image/png');
+    if (resultBlob.size > targetBytes) {
+      setCompressProgress(fill, pct, status, 60, '해상도 조정 중...');
+      await sleep(180);
+      resultBlob = await inlineCompressByResize(resultCanvas, targetBytes, fill, pct, status, 'image/png');
+    }
+  } else if (origEstimate <= targetBytes) {
     setCompressProgress(fill, pct, status, 70, '최적 품질로 변환 중...');
     await sleep(200);
-    resultBlob = await canvasToBlob(resultCanvas, 'image/jpeg', 0.92);
+    resultBlob = await canvasToBlob(resultCanvas, fmt, 0.92);
   } else {
-    resultBlob = await inlineCompressByQuality(resultCanvas, targetBytes, fill, pct, status);
+    resultBlob = await inlineCompressByQuality(resultCanvas, targetBytes, fill, pct, status, fmt);
     if (resultBlob.size > targetBytes) {
       setCompressProgress(fill, pct, status, 86, '해상도 조정 중...');
       await sleep(180);
-      resultBlob = await inlineCompressByResize(resultCanvas, targetBytes, fill, pct, status);
+      resultBlob = await inlineCompressByResize(resultCanvas, targetBytes, fill, pct, status, fmt);
     }
   }
 
@@ -1731,29 +1928,30 @@ async function runInlineCompress() {
   prog.classList.remove('visible');
 }
 
-async function inlineCompressByQuality(canvas, targetBytes, fill, pct, status) {
+async function inlineCompressByQuality(canvas, targetBytes, fill, pct, status, mime = 'image/jpeg') {
   let lo = 0.1, hi = 0.94, best = null;
   for (let i = 0; i < 12; i++) {
     const mid = (lo + hi) / 2;
     const progress = 15 + Math.round(i / 12 * 65);
     setCompressProgress(fill, pct, status, progress, `품질 최적화 중... (Q${Math.round(mid*100)})`);
     await sleep(50);
-    const blob = await canvasToBlob(canvas, 'image/jpeg', mid);
+    const blob = await canvasToBlob(canvas, mime, mid);
     if (!best || (blob.size <= targetBytes && blob.size > (best.size || 0))) best = blob;
     if (blob.size > targetBytes) hi = mid; else lo = mid;
     if (hi - lo < 0.01) break;
   }
-  return best || await canvasToBlob(canvas, 'image/jpeg', lo);
+  return best || await canvasToBlob(canvas, mime, lo);
 }
 
-async function inlineCompressByResize(canvas, targetBytes, fill, pct, status) {
+async function inlineCompressByResize(canvas, targetBytes, fill, pct, status, mime = 'image/jpeg') {
   let best = null;
   for (let i = 0; i < 10; i++) {
     const scale = 1.0 - (i / 10) * 0.8;
     const progress = 20 + Math.round(i / 10 * 70);
     setCompressProgress(fill, pct, status, progress, `해상도 조정 중... (${Math.round(scale*100)}%)`);
     await sleep(50);
-    const blob = await canvasResizeToBlob(canvas, scale, 'image/jpeg', 0.88);
+    const q = mime === 'image/png' ? undefined : 0.88;
+    const blob = await canvasResizeToBlob(canvas, scale, mime, q);
     if (blob.size <= targetBytes) { best = blob; break; }
     best = blob;
   }
